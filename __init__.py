@@ -14,8 +14,8 @@ __license__ = "MIT"
 
 
 if __name__ == "__main__":
-    from .__main__ import init_folders
+    from __main__ import init_folders
     init_folders()
 else:                             
-    from .main import *
+    from main import *
 

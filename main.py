@@ -9,7 +9,7 @@ from typing import (Callable, Iterable, List, Optional, Set, Tuple, Type,
 
 temp = sys.stdout
 sys.stdout = None #type: ignore
-from . import constants
+import constants
 import pygame
 from pygame import Color
 from pygame.mixer import Sound
