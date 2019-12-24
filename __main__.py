@@ -1,3 +1,5 @@
+
+
 def init_folders():
     import argparse, os, pathlib, shutil
     parser = argparse.ArgumentParser(prog="pyfoot", description=__doc__)
@@ -13,6 +15,5 @@ def init_folders():
         os.mkdir("Sounds")
         examplefile = (pathlib.Path(__file__).parent/"Examples/example.py").as_posix()
         shutil.copy2(examplefile, pathlib.Path(".").as_posix())
-
 
 init_folders()

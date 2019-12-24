@@ -17,5 +17,4 @@ if __name__ == "__main__":
     init_folders()
 else:                             
     from .main import *
-    
-    
+
