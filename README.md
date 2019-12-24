@@ -1,3 +1,4 @@
 # pyfoot
-A high level python libary for writing games.
-It is build upon the pygame libary and was inspired on the java libary Greenfoot.
+
+Pyfoot is a high-level library for writing simple 2d games.
+It is based upon the Python library pygame and was inspired by the java libary Greenfoot.
