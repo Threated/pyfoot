@@ -387,7 +387,8 @@ class World:
 
 
     def update(self):
-        # Möglickeiten: 1. Einfärbig 2. Ein Bild 3. Ein Bild pro Kästchen
+        "Method called internally to update the worlds surface"
+        # Possibilities: 1. single color 2. picture 3. one picture per tile
         CLOCK.tick(self.speed)
         if isinstance(self.bg, Image):
             if self.cell_size == 1:
@@ -400,14 +401,17 @@ class World:
             self._display.fill(self.bg)
 
     def add_Object(self, obj: Actor, x: int = None, y: int = None):
+        "Adds an actor to the world at a given position"
         if x is not None and y is not None:
             obj.set_location(x, y)
         self.actors.add(obj)
 
     def remove_Object(self, obj: Actor):
+        "Removes an actor from the world"
         self.actors.discard(obj)
 
     def add_Objects(self, *objs):
+        "Add multiple actors at once at the position specified in the actors attributes."
         self.actors.update(objs)
 
     def get_Objects(self, cls: Type[Actor] = Actor) -> List[Actor]:
@@ -416,42 +420,46 @@ class World:
                 if isinstance(act, cls)]
 
     def act(self):
-        "This method is run every frame and can be overridden by any subclass to implement new functionality"
+        "This method is run every frame and can be overridden by any subclass to implement new functionality."
         pass
 
 def stop():
-    "Stops the programm"
+    "Stops the programm."
     pygame.quit()
     quit()
 
 def set_title(name: str):
+    "Sets the title of the window."
     pygame.display.set_caption(name)
 
 
 def isKeyDown(key: str):
+    "Test if a certain key is pressed"
     pykey = constants.keys.get(key)
     return pygame.key.get_pressed()[pykey]
 
 def set_world(new_world: World):
+    "Changes the world that is showen. Can be used to initialize a world that has been created with auto_init=False or reinitialize an old World."
     global WORLD
     new_world._display = pygame.display.set_mode((new_world.width, new_world.height))
     WORLD = new_world
 
 def get_color_at(x: int, y: int) -> Color:
+    "Returns the Color at a given point on the world."
     if WORLD is not None:
         return WORLD._display.get_at((x, y))
     else:
         raise Exception('Create a World first before calling pyfoot.get_color_at') 
 
 def start():
+    "Starts the execution of the gameloop"
 
     global CLOCK
     CLOCK = pygame.time.Clock()
-    CLOCK.tick(60)
-    "Starts the execution of the gameloop"
     if WORLD is None:
         raise Exception('Create a World first before calling pyfoot.start')
         stop()
+    CLOCK.tick(WORLD.speed)
     running = True
     while running:
         # eventloop
