@@ -4,13 +4,13 @@ from pyfoot import World, Actor
 class MyActor(Actor):
 
     def act(self):
-        if pyfoot.isKeyDown("w"):
+        if pyfoot.is_key_down("w"):
             self.y -= 1
-        if pyfoot.isKeyDown("s"):
+        if pyfoot.is_key_down("s"):
             self.y += 1
-        if pyfoot.isKeyDown("a"):
+        if pyfoot.is_key_down("a"):
             self.x -= 1
-        if pyfoot.isKeyDown("d"):
+        if pyfoot.is_key_down("d"):
             self.x += 1
 
 def main():

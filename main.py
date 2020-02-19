@@ -9,7 +9,7 @@ from typing import (Callable, Iterable, List, Optional, Set, Tuple, Type,
 
 temp = sys.stdout
 sys.stdout = None #type: ignore
-import constants
+from . import constants
 import pygame
 from pygame import Color
 from pygame.mixer import Sound
@@ -22,7 +22,7 @@ AnyColor = Union[Color, Tuple[int, int, int], Tuple[int, int, int, int]]
 # TODO Polish, Rendering maybe, testing, more Greenfoot. methods
 
 
-class Image: # type: ignore
+class Image:
     """
     Class for drawing on images.
     This class internally uses the a pygame.Surface for all its drawing.
@@ -142,8 +142,14 @@ class Image: # type: ignore
 class Actor:
 
     def __init__(self, path: str = "default"):
+        """
+        Default constructor for Actor class
+        
+        :param path: The path to the Actors image, defaults to "default"
+        :type path: str, optional
+        """
         if path == "default":
-            path = Path(__file__).parent/"default_images/pyfoot_logo.png"
+            path: Path= Path(__file__).parent/"default_images/pyfoot_logo.png"
         self.image: Image = Image.from_path(path.as_posix())
         self._x: int = 0
         self._y: int = 0
@@ -208,26 +214,47 @@ class Actor:
         angle = (-m1+m2).angle_to(pygame.math.Vector2(0,-1)) # angle of the resulting vector to a vertical line
         self.rotation = angle
         
-    def get_closest(self, cls: Type[Actor]) -> Actor:
+    def get_closest(self, cls: Type[Actor] = None) -> Actor:
+        """
+        Gets the closest Actor object by Class
+        
+        :param cls: A superclass of Actor, default None means any Actor
+        :type cls: Type[Actor], optional
+        :return: The closest Actor of the specified class
+        :rtype: Actor
+        """
         pos = pygame.math.Vector2(self._x, self._y)
-        return min([a for a in self.get_world().get_Objects(cls) if a is not self], key=lambda obj: pos.distance_to(pygame.math.Vector2(obj._x, obj._y)))
+        return min(
+            [a 
+            for a in self.get_world().get_Objects(cls)
+            if a is not self],
+            key=lambda obj: pos.distance_to(pygame.math.Vector2(obj._x, obj._y)))
 
 
     def get_image(self) -> Image:
+        """
+        Returns the image object of the actor
+        
+        :return: The image object of the actor
+        :rtype: Image
+        """
         return self.image
     
     def mouse_over(self) -> bool:
         "Returns whether the mouse is over the actor"
         return self.image.surface.get_rect(x=self._x, y=self._y).collidepoint(pygame.mouse.get_pos())
 
-    def clicked(self, button: str = None) -> bool:
+    def clicked(self, mouse_button: str = None) -> bool:
         """
-        Returns whether the actor has been clicked on.
-        Optional argument button can be left, right or middle depending on which button should be clicked.
-        If left empty any mouse click will count
+        Return whether the mouse clicked the object
+        
+        :param mouse_button: Can be set to test which mouse button was pressed. Argument can be set to left, right, middle or the default None, which means any click will count
+        :type mouse_button: str, optional
+        :return: Return whether the mouse clicked the object
+        :rtype: bool
         """
         buttons = {"left": 0, "right": 1, "middle": 2}
-        if button is None:
+        if mouse_button is None:
             if self.mouse_over() and any(pygame.mouse.get_pressed()):
                 self.trigger_on_relief = True
                 return False
@@ -237,7 +264,7 @@ class Actor:
             else:
                 return False
         else:
-            if self.mouse_over() and pygame.mouse.get_pressed()[buttons[button]]:
+            if self.mouse_over() and pygame.mouse.get_pressed()[buttons[mouse_button]]:
                 self.trigger_on_relief = True
                 return False
             elif self.trigger_on_relief:
@@ -249,7 +276,7 @@ class Actor:
     def _update(self, display) -> pygame.Rect:
         return display.blit(self.image.surface, (self._x + self.x_offset, self._y + self.y_offset))
 
-    def at_edge(self) -> bool:
+    def at_edge(self) -> bool: # TODO: add top left right bottem
         width, height = self.get_world().width, self.get_world().height
         return self._x + self.image.width > width or self._x < 0 or self._y + self.image.height > height or self._y < 0
 
@@ -270,6 +297,14 @@ class Actor:
         self._y = value * self.get_world().cell_size
 
     def isTouching(self, other: Union[Type[Actor], Actor]) -> bool:
+        """
+        Tests if the image of the current actor touches the image of another object or object of a specified class
+        
+        :param other: Can be an object or class that inherits from Actor
+        :type other: Union[Type[Actor], Actor]
+        :return: Returns wheather the obj touches the specified object or an object of the specified class
+        :rtype: bool
+        """
         if isclass(other):
             for actor in self.get_world().get_Objects(other):  # type: ignore
                 if actor is self:
@@ -410,7 +445,7 @@ class World:
         "Removes an actor from the world"
         self.actors.discard(obj)
 
-    def add_Objects(self, *objs):
+    def add_Objects(self, *objs: List[Actor]):
         "Add multiple actors at once at the position specified in the actors attributes."
         self.actors.update(objs)
 
@@ -424,22 +459,42 @@ class World:
         pass
 
 def stop():
-    "Stops the programm."
+    """
+    Stops the program
+    """
     pygame.quit()
     quit()
 
 def set_title(name: str):
-    "Sets the title of the window."
+    """Sets the title of the window."""
     pygame.display.set_caption(name)
 
 
-def isKeyDown(key: str):
-    "Test if a certain key is pressed"
+def is_key_down(key: str) -> bool:
+    """
+    Tests wheather a certain key is pressed
+    
+    :param key: The key that should be tested for
+    :type key: str
+    :return: Returns wheather the key is pressed or not
+    :rtype: bool
+    """
     pykey = constants.keys.get(key)
+    if pykey is None:
+        raise KeyError("The key you where checking for was not found. For A list of all keys run pyfoot.get_all_keys")
     return pygame.key.get_pressed()[pykey]
 
+def get_all_keys() -> List[str]:
+    """
+    List of all keys that can be used for pyfoot.is_key_down
+    
+    :return: The List of keys
+    :rtype: List[str]
+    """
+    return constants.keys.keys()
+
 def set_world(new_world: World):
-    "Changes the world that is showen. Can be used to initialize a world that has been created with auto_init=False or reinitialize an old World."
+    "Changes the world that is shown. Can be used to initialize a world that has been created with auto_init=False or reinitialize an old World."
     global WORLD
     new_world._display = pygame.display.set_mode((new_world.width, new_world.height))
     WORLD = new_world
@@ -452,7 +507,11 @@ def get_color_at(x: int, y: int) -> Color:
         raise Exception('Create a World first before calling pyfoot.get_color_at') 
 
 def start():
-    "Starts the execution of the gameloop"
+    """
+    Starts the execution of the gameloop
+    
+    :raises Exception: Raises an exception if there was no World object initialized before execution of this mehtod. This can be Done by calling pyfoot.setWorld or by creating a default World object
+    """
 
     global CLOCK
     CLOCK = pygame.time.Clock()
