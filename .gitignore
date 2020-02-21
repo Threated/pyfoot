@@ -1,2 +1,3 @@
 **/Diagramms
 .vscode
+.mypy_cache*
