@@ -16,7 +16,8 @@ class MyActor(Actor):
 def main():
     my_world = World(600, 400)
     my_actor = MyActor()
-    my_world.add_Object(my_actor, 200, 200)
+    my_actor.set_location(300, 200)
+    my_world.add(my_actor)
     pyfoot.set_title("My Game")
     pyfoot.start()
 

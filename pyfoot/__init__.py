@@ -9,10 +9,11 @@ Most of the functions provided also accept pygame objects, which can provide mor
 
 __author__ = "Jan Skiba"
 __version__ = "0.1"
-__license__ = "MIT"
+__license__ = "GNU 3"
 
 
 from .main import *
+pygame.init()
 if __name__ == "__main__":
-    from __main__ import init_folders
+    from .__main__ import init_folders
     init_folders()
