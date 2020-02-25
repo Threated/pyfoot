@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sys
 import math
+import itertools
+from collections import OrderedDict
 from inspect import isclass
 from pathlib import Path
 from typing import (Callable, Iterable, List, Optional, Set, Tuple, Type,
@@ -210,9 +212,9 @@ class Actor:
         self.image: Image
         if path == "default":
             path = Path(__file__).parent / "default_images/pyfoot_logo.png"  # type: ignore
-            self.image = Image.from_path(path.as_posix())  # type: ignore
+            self._image = Image.from_path(path.as_posix())  # type: ignore
         else:
-            self.image = Image.from_path(path)
+            self._image = Image.from_path(path)
         self.x: int = 0
         self.y: int = 0
         self.x_offset = 0
@@ -222,26 +224,23 @@ class Actor:
         else:
             self.scale(self.get_world().cell_size, self.get_world().cell_size)
         self.trigger_on_relief: bool = False
-        self._rotation: float = 0
-        self._prev_pos: Tuple[int, int] = (0,0)
-
-    def rotate(self, angle: Union[int, float]):
-        self.image.rotate(angle)
-        self._rotation += angle
+        self.__rotation: float = 0
+        self._prev_rect: Optional[pygame.Rect] = None
+        self._rendered_img: pygame.Surface = self._image.surface.convert_alpha()
 
     @property
     def rotation(self) -> float:
-        return self._rotation
+        return self.__rotation
 
     @rotation.setter
-    def rotation(self, rotation: Union[float, int]):
-        while rotation < 0:
-            rotation += 360
-        while rotation > 360:
-            rotation -= 360
-        self.image.rotate(rotation - self._rotation)
-        print(f"Rotating image by {rotation-self._rotation}\nRotation is now by {rotation}")
-        self._rotation = rotation
+    def rotation(self, angle: Union[float, int]):
+        while angle < 0:
+            angle += 360
+        while angle > 360:
+            angle -= 360
+        if not self.__rotation == angle:
+            self.__rotation = angle
+            self._image._requires_update = True
 
     def __repr__(self):
         return f"<{self.__class__} object at ({self.x}, {self.y})>"
@@ -255,30 +254,30 @@ class Actor:
     def to_image_pos(self, pos: Tuple[int, int]) -> Tuple[int, int]:
         """
         Converts a pixel coordinate of the world to a pixel coordinate on the actors image
-        
+
         :param pos: Pixel coordinate of the world
         :type pos: Tuple[int, int]
         :return: Pixel coordinate on the actors image. Note that if the given pixel coordinate is not on the actors image this might give a coordinate that is outside of the actors image
         :rtype: Tuple[int, int]
         """
-        return pos[0] - self.x*self.get_world().cell_size, pos[1] - self.y*self.get_world().cell_size
+        return pos[0] - self.x * self.get_world().cell_size, pos[1] - self.y * self.get_world().cell_size
 
     def scale(self, w: int, h: int):
-        self.image.scale(w, h)
+        self._image.scale(w, h)
         self.realign()
 
     def realign(self):
         "When using a grid world this method will realign the object to the center of the cell if it was offset by any kind of image manipulation"
         cell_size = self.get_world().cell_size
         if cell_size != 1:
-            self.x_offset = (cell_size - self.image.width) // 2
-            self.y_offset = (cell_size - self.image.height) // 2
+            self.x_offset = (cell_size - self._image.width) // 2
+            self.y_offset = (cell_size - self._image.height) // 2
 
     def set_location(self, x: int, y: int):
         self.x = x
         self.y = y
 
-    def turn_towards(self, other: Actor):
+    def turn_towards(self, other: Union[Actor, Tuple[int, int]]):
         """
         Rotates the actor towards the other
 
@@ -286,10 +285,14 @@ class Actor:
         :type other: Actor
         :raises TypeError: If the Argument is not a subclass of actor
         """
-        if not isinstance(other, Actor):
-            raise TypeError(f"Argument needs to be a subclass of Actor not {type(other)}")
-        m1 = pygame.math.Vector2(self.x*self.get_world().cell_size + (self.image.width // 2), self.y*self.get_world().cell_size + (self.image.height // 2))  # middle of self
-        m2 = pygame.math.Vector2(other.x*self.get_world().cell_size + (other.image.width // 2), other.y*self.get_world().cell_size + (other.image.height // 2))  # middle of other
+
+        if not isinstance(other, (tuple, Actor)):
+            raise TypeError(f"Argument needs to be a subclass of Actor or a Tuple representing a Position not {type(other)}")
+        m1 = pygame.math.Vector2(self.x * self.get_world().cell_size + (self._image.width // 2), self.y * self.get_world().cell_size + (self.image.height // 2))  # middle of self
+        if isinstance(other, Actor):
+            m2 = pygame.math.Vector2(other.x * self.get_world().cell_size + (other._image.width // 2), other.y * self.get_world().cell_size + (other.image.height // 2))  # middle of other
+        else:
+            m2 = pygame.math.Vector2(other)
         angle = (-m1 + m2).angle_to(pygame.math.Vector2(0, -1))  # angle of the resulting vector to a vertical line
         self.rotation = angle
 
@@ -303,25 +306,41 @@ class Actor:
         :rtype: Actor
         """
         cls = Actor if cls is None else cls
-        pos = pygame.math.Vector2(self.x*self.get_world().cell_size, self.y*self.get_world().cell_size)
+        pos = pygame.math.Vector2(self.x * self.get_world().cell_size, self.y * self.get_world().cell_size)
         return min(
             [a
              for a in self.get_world().get_objects(cls)
              if a is not self],
-            key=lambda obj: pos.distance_to(pygame.math.Vector2(obj.x*self.get_world().cell_size, obj.y*self.get_world().cell_size)))
+            key=lambda obj: pos.distance_to(pygame.math.Vector2(obj.x * self.get_world().cell_size, obj.y * self.get_world().cell_size)))
 
-    def get_image(self) -> Image:
+    @property
+    def image(self) -> Image:
         """
-        Returns the image object of the actor
+        Returns the image object of the actor without rotation
 
         :return: The image object of the actor
         :rtype: Image
         """
-        return self.image
+        return self._image
+
+    @image.setter
+    def image(self, img: Image):
+        """
+        Sets the a new image for the actor
+
+        :param img: The new Image
+        :type img: Image
+        """
+        self._image = img
+        self.__render()
+
+    def __render(self):
+        self._rendered_img = pygame.transform.rotate(self._image.surface, self.__rotation)
+        #pygame.draw.rect(self.__rendered_img, (255, 0, 0), self.__rendered_img.get_rect(), 1)
 
     def mouse_over(self) -> bool:
         "Returns whether the mouse is over the actor"
-        return self.image.surface.get_rect(x=self.x*self.get_world().cell_size, y=self.y*self.get_world().cell_size).collidepoint(pygame.mouse.get_pos())
+        return self._image.surface.get_rect(x=self.x * self.get_world().cell_size, y=self.y * self.get_world().cell_size).collidepoint(pygame.mouse.get_pos())
 
     def clicked(self, mouse_button: str = None) -> bool:
         """
@@ -352,21 +371,50 @@ class Actor:
             else:
                 return False
 
-    def _update(self, world: World) -> Optional[pygame.Rect]:
+    def _update(self, world: World) -> Optional[List[pygame.Rect]]:
         new_pos = (self.x * world.cell_size + self.x_offset, self.y * world.cell_size + self.y_offset)
-        if self.image._requires_update or new_pos != self._prev_pos:
-            self._prev_pos = new_pos
+        if self.image._requires_update or self._prev_rect is None or new_pos != self._prev_rect.topleft:
+            self.__render()
             self.image._requires_update = False
-            if not isinstance(world.bg, (tuple, Color)):
-                rect = self.image.surface.get_rect(x=self._prev_pos[0],y=self._prev_pos[1])
-                world._display.blit(world.bg.surface.subsurface(rect), (rect.x, rect.y)) #type: ignore
-            return world._display.blit(self.image.surface, self._prev_pos)
+            areas_to_update: List[pygame.Rect] = []
+            new_rect: pygame.Rect = self._rendered_img.get_rect(topleft=new_pos)
+            render_before_all, render_after_all = [], []  # type: ignore
+            all_rects = (new_rect, self._prev_rect) if self._prev_rect is not None else (new_rect,)
+            for rect in all_rects: #type: ignore
+                rect = rect.clip(world.bg.surface.get_rect())
+                if not rect.size == (0, 0):
+                    rect = world._display.blit(world.bg.surface.subsurface(rect), rect.topleft)
+
+                    def get_render_info(actor: Actor) -> Tuple[pygame.Surface, Tuple[int, int]]:
+                        if actor._prev_rect is None:
+                            actor._prev_rect = actor.image.surface.get_rect(x=actor.x * world.cell_size, y=actor.y * world.cell_size)
+                        sub_rect = rect.clip(actor._prev_rect)
+                        pos = sub_rect.topleft
+                        sub_rect.topleft = actor.to_image_pos(pos)
+                        return actor._rendered_img.subsurface(sub_rect), pos
+                    areas_to_update.append(rect)
+                    other_objs = world.get_objects()
+                    if len(other_objs) > 1:
+                        self_i = other_objs.index(self)
+                        render_before, render_after = other_objs[:self_i], other_objs[self_i + 1:]
+                        overlapping_actors = map(lambda idx: render_before[idx], rect.collidelistall(
+                            list(map(lambda act: act._rendered_img.get_rect(x=act.x*world.cell_size, y=act.y*world.cell_size), render_before))))  # may not work because not multiplied by cell_size
+                        render_before_all.extend(map(get_render_info, overlapping_actors))
+                        overlapping_actors = map(lambda idx: render_after[idx], rect.collidelistall(
+                            list(map(lambda act: act._rendered_img.get_rect(x=act.x*world.cell_size, y=act.y*world.cell_size), render_after))))  # may not work because not multiplied by cell_size
+                        render_after_all.extend(map(get_render_info, overlapping_actors))
+            self._prev_rect = new_rect
+            for render_info in render_before_all:
+                areas_to_update.append(world._display.blit(*render_info))
+            areas_to_update.append(world._display.blit(self._rendered_img, self._prev_rect.topleft))
+            for render_info in render_after_all:
+                areas_to_update.append(world._display.blit(*render_info))
+            return areas_to_update
         return None
 
     def at_edge(self) -> bool:  # TODO: add top left right bottem
         width, height = self.get_world().width, self.get_world().height
-        return self.x*self.get_world().cell_size + self.image.width > width or self.x*self.get_world().cell_size < 0 or self.y*self.get_world().cell_size + self.image.height > height or self.y*self.get_world().cell_size < 0
-
+        return self.x * self.get_world().cell_size + self._image.width > width or self.x * self.get_world().cell_size < 0 or self.y * self.get_world().cell_size + self._image.height > height or self.y * self.get_world().cell_size < 0
 
     def isTouching(self, other: Union[Type[Actor], Actor]) -> bool:
         """
@@ -381,16 +429,17 @@ class Actor:
             for actor in self.get_world().get_objects(other):  # type: ignore
                 if actor is self:
                     continue
-                return self.image.surface.get_rect(x=self.x*self.get_world().cell_size, y=self.y*self.get_world().cell_size).colliderect(actor.image.surface.get_rect(x=actor.x*self.get_world().cell_size, y=actor.y*self.get_world().cell_size))
+                return self._rendered_img.get_rect(x=self.x * self.get_world().cell_size, y=self.y * self.get_world().cell_size).colliderect(actor._rendered_img.get_rect(x=actor.x * self.get_world().cell_size, y=actor.y * self.get_world().cell_size))
             return False
         else:
-            return self.image.surface.get_rect(x=self.x*self.get_world().cell_size, y=self.y*self.get_world().cell_size).colliderect(other.image.surface.get_rect(x=other.x*self.get_world().cell_size, y=other.y*self.get_world().cell_size))
+            # type: ignore
+            return self._rendered_img.get_rect(x=self.x * self.get_world().cell_size, y=self.y * self.get_world().cell_size).colliderect(other._rendered_img.get_rect(x=other.x * self.get_world().cell_size, y=other.y * self.get_world().cell_size))
 
     def get_intersecting(self, other: Type[Actor]) -> Optional[Actor]:
         for actor in self.get_world().get_objects(other):
             if actor is self:
                 continue
-            elif self.image.surface.get_rect(x=self.x*self.get_world().cell_size, y=self.y*self.get_world().cell_size).colliderect(actor.image.surface.get_rect(x=actor.x*self.get_world().cell_size, y=actor.y*self.get_world().cell_size)):
+            elif self._rendered_img.get_rect(x=self.x * self.get_world().cell_size, y=self.y * self.get_world().cell_size).colliderect(actor._rendered_img.get_rect(x=actor.x * self.get_world().cell_size, y=actor.y * self.get_world().cell_size)):
                 return actor
         return None
 
@@ -456,7 +505,7 @@ class World:
             for width in range(0, self.width, self.cell_size):
                 for height in range(0, self.height, self.cell_size):
                     img.blit(self.bg.surface, (width, height))
-        self.bg: Union[Image, AnyColor] = img
+        self.bg: Image = img
 
     def __init__(self, width: int, height: int, cell_size: int = 1, auto_init: bool = True):
         """
@@ -479,7 +528,7 @@ class World:
             WORLD = self
             self._display: pygame.Surface = pygame.display.set_mode((self.width, self.height))
             set_world(self)
-        self.actors: Set[Actor] = set()
+        self.actors: OrderedDict[Type[Actor], Set[Actor]] = OrderedDict()
         self.generate_default_background()
         self.speed = 60
 
@@ -492,13 +541,17 @@ class World:
         """
         self.speed = speed
 
-    def set_bg(self, path: Union[str, Image], full_image: bool = False):
+    def set_bg(self, path: Union[str, Image, AnyColor], full_image: bool = False):
         """
         Sets the background of the world. Takes a path or an image object as an argument.
         Additional argument full_image can be said to True if you want a full image background despite of a grid world
         """
         if isinstance(path, str):
             self.bg = Image.from_path(path)
+        elif isinstance(path, (Color, tuple)):
+            self.bg = Image(self.width, self.height)
+            self.bg.fill(path)
+            return  # Image does not require any more scaling
         else:
             self.bg = path
         if self.cell_size == 1 or full_image:
@@ -509,42 +562,49 @@ class World:
     def show_text(self, text: str, x: int, y: int):
         "Shows Text at a given position.\nNote that this class internally adds a Text object to the world"
         t = Text(text)
-        t.set_location(x,y)
+        t.set_location(x, y)
         self.add(t)
 
-    def update(self):
+    def _update(self):
         "Method called internally to update the worlds surface"
-        # Possibilities: 1. single color 2. picture 3. one picture per tile
-        if isinstance(self.bg, Image):
-            if self.bg._requires_update:
-                self.bg._requires_update = False
-                return self._display.blit(self.bg.surface, (0, 0))
-        else:
-            return self._display.fill(self.bg)
+        if self.bg._requires_update:
+            self.bg._requires_update = False
+            update_area = self._display.blit(self.bg.surface, (0, 0))
+            for a in self.get_objects():
+                self._display.blit(a._rendered_img, (a.x * self.cell_size + a.x_offset, a.y * self.cell_size + a.y_offset))
+            return update_area
 
-
-    def remove_Object(self, obj: Actor):
+    def remove(self, *objs: Actor):
         "Removes an actor from the world"
-        self.actors.discard(obj)
+        for act in objs:
+            self.actors.get(type(act), set()).discard(act)
 
     def add(self, *objs: Actor):
         """
         Adds all given actors to the world
         """
-        self.actors.update(objs)
+        for act in objs:
+            self.actors.setdefault(type(act), set()).add(act)
+
+    def set_paint_order(self, *types: Type[Actor]):
+        order_dict = {v: k for k, v in dict(enumerate(types)).items()}
+        for key in order_dict.keys():
+            self.actors.setdefault(key, set())
+        self.actors = OrderedDict(sorted(self.actors.items(), key=lambda item: order_dict.get(item[0], -1)))  # type: ignore
 
     def get_objects(self, cls: Type[Actor] = Actor) -> List[Actor]:
         """
         Gets all objects of the specified class in this world
-        
+
         :param cls: The class all objects should be from, defaults to Actor
         :type cls: Type[Actor], optional
         :return: Returns all actors of the specified class
         :rtype: List[Actor]
         """
-        return [act
-                for act in self.actors
-                if isinstance(act, cls)]
+        if cls == Actor:
+            return list(itertools.chain.from_iterable(self.actors.values()))
+        else:
+            return list(self.actors.get(cls, default=set()))
 
     def act(self):
         "This method is run every frame and can be overridden by any subclass to implement new functionality."
@@ -601,6 +661,16 @@ def set_world(new_world: World):
     WORLD = new_world
 
 
+def get_mouse_pos() -> Tuple[int, int]:
+    """
+    Gets the position of the mouse on the screen
+
+    :return: Tuple representing the point of the mouse
+    :rtype: Tuple[int, int]
+    """
+    return pygame.mouse.get_pos()
+
+
 def get_color_at(x: int, y: int) -> Color:
     """
     Gets the color of the world at a specified pixel location
@@ -639,15 +709,12 @@ def start():
             if event.type == pygame.QUIT:
                 stop()
 
-        # TODO: Maybe overthink this rendering part
-        update: Optional[pygame.Rect] = WORLD.update()
+        update: Optional[pygame.Rect] = WORLD._update()
         if update is not None:
-            print("update")
             pygame.display.update(update)
         WORLD.act()
-        for actor in WORLD.actors:
+        for actor in WORLD.get_objects():
             actor.act()
             update = actor._update(WORLD)
             if update is not None:
-                print("Update")
                 pygame.display.update(update)
