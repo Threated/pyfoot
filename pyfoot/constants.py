@@ -8,6 +8,7 @@ keys = {
     "tab": pygame.K_TAB,
     "clear": pygame.K_CLEAR,
     "return": pygame.K_RETURN,
+    "enter": pygame.K_RETURN,
     "pause": pygame.K_PAUSE,
     "escape": pygame.K_ESCAPE,
     " ": pygame.K_SPACE,
