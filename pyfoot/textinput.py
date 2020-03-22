@@ -144,11 +144,14 @@ class TextInput:
 
         # Update self.cursor_visible
         self.cursor_ms_counter += self.clock.get_time()
-        if self.cursor_ms_counter >= self.cursor_switch_ms and not self.cursor_switch_ms == -1:
+        if self.cursor_ms_counter >= self.cursor_switch_ms:
             self.cursor_ms_counter %= self.cursor_switch_ms
             self.cursor_visible = not self.cursor_visible
 
-        if self.cursor_visible and not self.cursor_switch_ms == -1:
+        if self.cursor_switch_ms == -1:
+            self.cursor_visible = False
+
+        if self.cursor_visible:
             cursor_y_pos = self.font_object.size(self.input_string[:self.cursor_position])[0]
             # Without this, the cursor is invisible when self.cursor_position > 0:
             if self.cursor_position > 0:

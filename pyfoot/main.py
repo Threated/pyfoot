@@ -449,6 +449,7 @@ class Text(Actor):
         self.textbox.update([])
         self.image = Image.from_surface(self.textbox.surface)
         self.editable: bool = editable
+        self.focus: bool = False
 
     @property
     def message(self) -> str:
@@ -460,27 +461,25 @@ class Text(Actor):
         self.textbox.update([])
         self.image = Image.from_surface(self.textbox.surface)
     
-    def update(self, events: List[pygame.event.Event]) -> bool:
+    def act(self):
         """
-        This only does somthing if self.editable is True
-        If your Text object should be editable you need to update it with this mehtod every frame.
-        Example:
-            class MyInput(pyfoot.Text)
-
-                def act(self):
-                    if self.mouse_over(): # better way would be with a focused attribute.
-                        self.update(pyfoot.get_all_events())
-        
-        :param events: list of all pygame events from pyfoot.get_all_events()
-        :type events: List[pygame.event]
-        :return: Returns if enter was pressed
-        :rtype: bool
+        This is the default act Method of pyfoot.Text, which if self.editable serves the purpose of only registering input if it has been clicked.
+        Note if you want to keep this behavior and add a act method to your class which inherits from this class make sure to call super().act()
+        If you want to override this behavior make sure to update the textbox every frame like this 'self.textbox.update(pyfoot.get_all_events())'
         """
         if self.editable:
-            ret = self.textbox.update(events)
-            self.message = self.textbox.input_string
-            return ret
-        return False
+            if self.clicked():
+                self.focus = True
+            elif any(pygame.mouse.get_pressed()) and not self.mouse_over():
+                self.focus = False
+
+            if self.focus:
+                self.textbox.cursor_switch_ms = 500
+                self.textbox.update(EVENTS)
+                self.message = self.textbox.input_string
+            else:
+                self.textbox.cursor_switch_ms = -1
+                self.message = self.message
 
 
 class World:
@@ -749,6 +748,7 @@ def start():
         # eventloop
         CLOCK.tick(WORLD.speed)
         EVENTS = pygame.event.get()
+        print("updating evaents")
         for event in EVENTS:
             if event.type == pygame.QUIT:
                 stop()
