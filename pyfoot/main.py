@@ -12,7 +12,7 @@ CLOCK = None
 EVENTS: List[pygame.event.Event] = []
 
 
-# TODO testing, more Greenfoot. methods
+# TODO Test set_world, more Greenfoot. methods
 
 
 class Image:
@@ -129,63 +129,125 @@ class Image:
         self.surface = pygame.transform.rotate(self.surface, degrees)
         self._requires_update = True
 
-    def expand_to(self, *points: Tuple[int, int]) -> None:
-        "Expands the surface so that the given point(s) is inside"
-        needed_width, needed_height = self.width, self.height
-        negative_width, negative_height = 0, 0
-        for x, y in points:
-            if x > needed_width:
-                needed_width = x
-            elif x < negative_width:
-                negative_width = abs(x)
-            if y > needed_height:
-                needed_height = y
-            elif y < negative_height:
-                negative_height = abs(y)
-
-        if needed_width > self.width or needed_height > self.height or not (negative_width == 0 and negative_height == 0):
-            new_surface = pygame.Surface((needed_width + negative_width, needed_height + negative_height), pygame.SRCALPHA)
-            new_surface.blit(self.surface, (negative_width, negative_height))
-            self.surface = new_surface
 
     def get_color_at(self, pos: Tuple[int, int]) -> Color:
+        """
+        Returns the color at a given position
+        
+        :param pos: The position to be checked
+        :type pos: Tuple[int, int]
+        :return: The color at the position
+        :rtype: Color
+        """
         return self.surface.get_at(pos)
 
-    def draw_rect(self, width: int, height: int, pos: Tuple[int, int], color: AnyColor = None) -> None:
+    def draw_rect(self, width: int, height: int, pos: Tuple[int, int], color: AnyColor = None, line_width: int = None) -> None:
+        """
+        Draws a rectangle on the Image
+        
+        :param width: Width of the rectangle
+        :type width: int
+        :param height: Height of the rectangle
+        :type height: int
+        :param pos: Top left corner of the rectangle relative to the image
+        :type pos: Tuple[int, int]
+        :param color: Color of the rectangle, defaults to self.drawing_color
+        :type color: AnyColor, optional
+        :param line_width: outline width of the rectangle, defaults to self.drawing_width
+        :type line_width: int, optional
+        """
         color = color if color is not None else self.drawing_color
-        pygame.draw.rect(self.surface, self.drawing_color, (*pos, width, height), self.drawing_width)
+        line_width = line_width if line_width is not None else self.drawing_width
+        pygame.draw.rect(self.surface, color, (*pos, width, height), line_width)
         self._requires_update = True
 
-    def draw_circle(self, radius: Union[int, float], center: Tuple[int, int], color: AnyColor = None):
+    def draw_circle(self, radius: Union[int, float], center: Tuple[int, int], color: AnyColor = None, width: int = None):
+        """
+        Draws a circle on the surface
+        
+        :param radius: Radius of the circle
+        :type radius: Union[int, float]
+        :param center: Center point of the circle
+        :type center: Tuple[int, int]
+        :param color: Color of the circle, defaults to self.drawing_color
+        :type color: AnyColor, optional
+        :param width: Width of the circle outline. If 0 fills the circle, defaults to self.drawing_width
+        :type width: int, optional
+        """
+        width = width if width is not None else self.drawing_width
         color = color if color is not None else self.drawing_color
-        pygame.draw.circle(self.surface, self.drawing_color, center, radius, self.drawing_width)
+        pygame.draw.circle(self.surface, color, center, radius, width)
         self._requires_update = True
 
-    def draw_line(self, start_point: Tuple[int, int], end_point: Tuple[int, int], color: AnyColor = None):
+    def draw_line(self, start_point: Tuple[int, int], end_point: Tuple[int, int], color: AnyColor = None, width: int = None):
+        """
+        Draws a line on the image
+        
+        :param start_point: Start point of the line
+        :type start_point: Tuple[int, int]
+        :param end_point: End point of the line
+        :type end_point: Tuple[int, int]
+        :param color: Color of the line, defaults to self.drawing_color
+        :type color: AnyColor, optional
+        :param width: The width of the line, defaults to self.drawing_width
+        :type width: int, optional
+        """
+        width = width if width is not None else self.drawing_width
         color = color if color is not None else self.drawing_color
-        pygame.draw.line(self.surface, color, start_point, end_point, self.drawing_width)
+        pygame.draw.line(self.surface, color, start_point, end_point, width)
         self._requires_update = True
 
     def draw_image(self, img: Union[pygame.Surface, "Image"], pos: Tuple[int, int] = (0, 0)):
+        """
+        Draws an Image or Surface on the Image
+        
+        :param img: Image or Surface to be drawn on the Image
+        :type img: Union[pygame.Surface, Image]
+        :param pos: Start position from where to draw, defaults to (0, 0)
+        :type pos: Tuple[int, int], optional
+        """
         if isinstance(img, Image):
             img = img.surface
         self.surface.blit(img, pos)
         self._requires_update = True
 
-    def draw_text(self, text: Union[str, "Text"], pos: Tuple[int, int], color: AnyColor = None):
-        color = color if color is not None else self.drawing_color
+    def draw_text(self, text: Union[str, "Text"], pos: Tuple[int, int]):
+        """
+        Draws text on the image.
+        
+        :param text: The text to be drawn. For more customization a Text object can be supplied
+        :type text: Union[str, Text]
+        :param pos: The relative position of the Text on the Image
+        :type pos: Tuple[int, int]
+        """
         if type(text) is str:
-            text = Text(text, color=color)  # type: ignore
+            text = Text(text)  # type: ignore
         self.surface.blit(text.image.surface, pos)  # type: ignore
         self._requires_update = True
 
     def draw_polygon(self, points: List[Tuple[int, int]], width: int = None, color: AnyColor = None):
+        """
+        Draws a polygon on the surface.
+        
+        :param points: List of points to be drawn
+        :type points: List[Tuple[int, int]]
+        :param width: The width of the outline. If width is 0 the polygon will be filled, defaults to self.drawing_width
+        :type width: int, optional
+        :param color: The color to draw the polygon in. If not specified self.drawing_color will be used
+        :type color: AnyColor, optional
+        """
         color = color if color is not None else self.drawing_color
         width = width if width is not None else self.drawing_width
-        pygame.draw.polygon(self.surface, self.drawing_color, points, width)
+        pygame.draw.polygon(self.surface, color, points, width)
         self._requires_update = True
 
     def fill(self, color: AnyColor = None):
+        """
+        Fills the entire Image in the given color
+        
+        :param color: The color to fill the image with. If not specified self.drawing_color will be used
+        :type color: AnyColor, optional
+        """
         self.surface.fill(color if color is not None else self.drawing_color)
         self._requires_update = True
 
@@ -209,13 +271,19 @@ class Actor:
         self.x_offset = 0
         self.y_offset = 0
         if self.get_world().cell_size == 1:
-            self.scale(50, 50) #TODO: Rethink this
+            world_dim = self.get_world().width, self.get_world().height
+            self.image.scale_by(min([min(1, min(i//4, j)/i) for i, j in zip(world_dim, self.image.get_dimensions())]))
+            # scale the image accordingly so that the max size of the image is half of the screen size
         else:
-            self.scale(self.get_world().cell_size, self.get_world().cell_size)
+            self.image.scale(self.get_world().cell_size, self.get_world().cell_size)
         self.trigger_on_relief: bool = False
         self.__rotation: float = 0
         self._prev_rect: Optional[pygame.Rect] = None
         self._rendered_img: pygame.Surface = self._image.surface.convert_alpha()
+
+    @property
+    def location(self) -> Tuple[int, int]:
+        return self.x, self.y
 
     @property
     def rotation(self) -> float:
@@ -242,7 +310,7 @@ class Actor:
 
     def to_image_pos(self, pos: Tuple[int, int]) -> Tuple[int, int]:
         """
-        Converts a pixel coordinate of the world to a pixel coordinate on the actors image
+        Converts a pixel coordinate of the world to a pixel coordinate on the actors image.
 
         :param pos: Pixel coordinate of the world
         :type pos: Tuple[int, int]
@@ -251,9 +319,6 @@ class Actor:
         """
         return pos[0] - self.x * self.get_world().cell_size, pos[1] - self.y * self.get_world().cell_size
 
-    def scale(self, w: int, h: int):
-        self._image.scale(w, h)
-        self.realign()
 
     def realign(self):
         "When using a grid world this method will realign the object to the center of the cell if it was offset by any kind of image manipulation"
@@ -263,6 +328,14 @@ class Actor:
             self.y_offset = (cell_size - self._image.height) // 2
 
     def set_location(self, x: int, y: int):
+        """
+        Sets the location of the actor.
+        
+        :param x: the x coordinate of the actor
+        :type x: int
+        :param y: the y coordinate of the actor
+        :type y: int
+        """
         self.x = x
         self.y = y
 
@@ -325,8 +398,10 @@ class Actor:
         self.__render()
 
     def __render(self):
+        """
+        Internal method that renders the actors image with its current rotation.
+        """
         self._rendered_img = pygame.transform.rotate(self._image.surface, self.__rotation)
-        #pygame.draw.rect(self.__rendered_img, (255, 0, 0), self.__rendered_img.get_rect(), 1)
 
     def mouse_over(self) -> bool:
         "Returns whether the mouse is over the actor"
@@ -365,7 +440,8 @@ class Actor:
     def _update(self, world: "World") -> Optional[List[pygame.Rect]]:
         """Internal method that draws the actor to the screen and returns the area that has to be updated"""
         new_pos = (self.x * world.cell_size + self.x_offset, self.y * world.cell_size + self.y_offset)
-        if self.image._requires_update or self._prev_rect is None or new_pos != self._prev_rect.topleft:  # if actor image changed or actor moved or actor has not yet been drawn
+        if self.image._requires_update or self._prev_rect is None or new_pos != self._prev_rect.topleft:
+        # if actor image changed or actor moved or actor has not yet been drawn
             self.__render()
             self.image._requires_update = False
             areas_to_update: List[pygame.Rect] = []
@@ -384,6 +460,7 @@ class Actor:
                         pos = sub_rect.topleft
                         sub_rect.topleft = actor.to_image_pos(pos)
                         return actor._rendered_img.subsurface(sub_rect), pos
+                    
                     areas_to_update.append(rect)
                     other_objs = world.get_objects()
                     if len(other_objs) > 1:
@@ -408,7 +485,7 @@ class Actor:
         width, height = self.get_world().width, self.get_world().height
         return self.x * self.get_world().cell_size + self._image.width > width or self.x * self.get_world().cell_size < 0 or self.y * self.get_world().cell_size + self._image.height > height or self.y * self.get_world().cell_size < 0
 
-    def isTouching(self, other: Union[Type["Actor"], "Actor"]) -> bool:
+    def is_touching(self, other: Union[Type["Actor"], "Actor"]) -> bool:
         """
         Tests if the image of the current actor touches the image of another object or object of a specified class
 
@@ -427,6 +504,12 @@ class Actor:
             return self._rendered_img.get_rect(x=self.x * self.get_world().cell_size, y=self.y * self.get_world().cell_size).colliderect(other._rendered_img.get_rect(x=other.x * self.get_world().cell_size, y=other.y * self.get_world().cell_size))
 
     def get_intersecting(self, other: Type["Actor"]) -> Optional["Actor"]:
+        """
+        Given a Class returns the first instance intersecting this object else None
+        
+        :return: The first intersecting actor if any else None
+        :rtype: Optional[Actor]
+        """
         for actor in self.get_world().get_objects(other):
             if actor is self:
                 continue
@@ -576,7 +659,6 @@ class World:
     def _update(self):
         "Method called internally to update the worlds surface"
         if self.bg._requires_update:
-            print("Updating World")
             self.bg._requires_update = False
             update_area = self._display.blit(self.bg.surface, (0, 0))
             for a in self.get_objects():
@@ -596,6 +678,11 @@ class World:
             self.actors.setdefault(type(act), set()).add(act)
 
     def set_paint_order(self, *types: Type[Actor]):
+        """
+        Sets the order in which objects are drawn on the screen.
+        first item => drawn first so behind others
+        last item => drawn last so in front of others
+        """
         order_dict = {v: k for k, v in dict(enumerate(types)).items()}
         for key in order_dict.keys():
             self.actors.setdefault(key, set())
@@ -748,7 +835,6 @@ def start():
         # eventloop
         CLOCK.tick(WORLD.speed)
         EVENTS = pygame.event.get()
-        print("updating evaents")
         for event in EVENTS:
             if event.type == pygame.QUIT:
                 stop()
