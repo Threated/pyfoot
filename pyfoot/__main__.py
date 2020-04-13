@@ -16,7 +16,7 @@ def init_folders():
         os.chdir(args.projectname)
         os.mkdir("Graphics")
         os.mkdir("Sounds")
-        examplefile = (pathlib.Path(__file__).parent.parent / "Examples/example.py").as_posix()
+        examplefile = (pathlib.Path(__file__).parent / "Examples/example.py").as_posix()
         shutil.copy2(examplefile, pathlib.Path(".").as_posix())
 
 
