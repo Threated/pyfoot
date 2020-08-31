@@ -669,6 +669,7 @@ class World:
         "Removes an actor from the world"
         for act in objs:
             self.actors.get(type(act), set()).discard(act)
+            self.bg._requires_update = True
 
     def add(self, *objs: Actor):
         """
