@@ -7,7 +7,7 @@ desc = "A simple simple and beginner friendly library for writing 2D games based
 
 setuptools.setup(
     name="pyfoot",
-    version="0.1.3",
+    version="0.1.4",
     description=desc,
     long_description=long_description,
     long_description_content_type="text/markdown",
